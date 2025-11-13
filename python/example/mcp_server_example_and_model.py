@@ -4,35 +4,6 @@ import os
 from agentscope_nacos.model.nacos_chat_model import NacosChatModel
 from agentscope_nacos.nacos_service_manager import NacosServiceManager
 
-# 设置 gRPC 环境变量
-os.environ["GRPC_ENABLE_FORK_SUPPORT"] = "0"
-os.environ["GRPC_VERBOSITY"] = "ERROR"  # 降低 gRPC 日志噪音
-
-# ============================================================================
-# 配置日志 - DEBUG 级别
-# ============================================================================
-# logging.basicConfig(
-#     level=logging.ERROR,  # 全局日志级别设置为 DEBUG
-#     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-#     datefmt='%Y-%m-%d %H:%M:%S'
-# )
-#
-# # 设置特定模块的日志级别
-# logging.getLogger("agentscope_nacos_mcp").setLevel(logging.DEBUG)
-# logging.getLogger("agentscope_dynamic_toolkit").setLevel(logging.DEBUG)
-# logging.getLogger("v2.nacos").setLevel(logging.DEBUG)  # Nacos SDK
-# logging.getLogger("agentscope_nacos").setLevel(logging.INFO)  # AgentScope 框架保持 INFO
-#
-# # 降低一些第三方库的日志级别，避免过多输出
-# logging.getLogger("httpx").setLevel(logging.WARNING)
-# logging.getLogger("httpcore").setLevel(logging.WARNING)
-# logging.getLogger("urllib3").setLevel(logging.WARNING)
-#
-# logger = logging.getLogger(__name__)
-# logger.info("=" * 70)
-# logger.info("启动 AgentScope + Nacos MCP 应用")
-# logger.info("=" * 70)
-
 from agentscope.agent import ReActAgent, UserAgent, UserInputBase, UserInputData
 from agentscope.formatter import DashScopeChatFormatter
 from agentscope.memory import InMemoryMemory
