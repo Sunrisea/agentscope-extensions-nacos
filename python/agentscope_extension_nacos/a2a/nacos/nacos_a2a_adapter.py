@@ -18,8 +18,8 @@ from v2.nacos.ai.model.ai_param import ReleaseAgentCardParam, \
 	RegisterAgentEndpointParam
 from v2.nacos.ai.nacos_ai_service import NacosAIService
 
-from agentscope_nacos.utils import get_first_non_loopback_ip
-from agentscope_nacos.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.utils import get_first_non_loopback_ip
+from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
 
 
 # Initialize logger

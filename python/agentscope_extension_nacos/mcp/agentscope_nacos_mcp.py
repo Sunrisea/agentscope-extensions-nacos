@@ -17,8 +17,8 @@ from v2.nacos.ai.model.mcp.mcp import McpServerDetailInfo
 from v2.nacos.ai.nacos_ai_service import NacosAIService
 
 
-from agentscope_nacos.nacos_service_manager import NacosServiceManager
-from agentscope_nacos.utils import \
+from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.utils import \
 	random_generate_url_from_mcp_server_detail_info
 
 if TYPE_CHECKING:

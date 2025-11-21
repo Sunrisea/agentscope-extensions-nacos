@@ -13,8 +13,8 @@ from agentscope.model import ChatModelBase, OpenAIChatModel, AnthropicChatModel,
 from v2.nacos import ClientConfig, NacosConfigService, ConfigParam
 from watchfiles import awatch
 
-from agentscope_nacos.utils import AsyncRWLock, validate_agent_name
-from agentscope_nacos.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.utils import AsyncRWLock, validate_agent_name
+from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -130,7 +130,8 @@ class NacosChatModel(ChatModelBase):
 						data_id=user_model_config_data_id,
 						group=user_model_config_group_name,
 				))
-		if user_model_config is None:
+
+		if user_model_config is None or len(user_model_config) == 0:
 			logger.error(f"[{self.__class__.__name__}] No model config found for agent {self.agent_name}")
 			raise Exception(
 					f"No model config found for agent {self.agent_name}")

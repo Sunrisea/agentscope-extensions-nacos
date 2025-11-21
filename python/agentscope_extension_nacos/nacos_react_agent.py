@@ -10,10 +10,10 @@ from agentscope.memory import MemoryBase, LongTermMemoryBase
 from agentscope.plan import PlanNotebook
 from agentscope.rag import KnowledgeBase
 
-from agentscope_nacos.mcp.agentscope_nacos_mcp import NacosHttpStatelessClient
-from agentscope_nacos.model.nacos_chat_model import NacosChatModel, AutoFormatter
-from agentscope_nacos.mcp.agentscope_dynamic_toolkit import DynamicToolkit
-from agentscope_nacos.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.mcp.agentscope_nacos_mcp import NacosHttpStatelessClient
+from agentscope_extension_nacos.model.nacos_chat_model import NacosChatModel, AutoFormatter
+from agentscope_extension_nacos.mcp.agentscope_dynamic_toolkit import DynamicToolkit
+from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
 from agentscope.tool import Toolkit
 
 # Initialize logger
