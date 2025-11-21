@@ -1,0 +1,22 @@
+# Include documentation files
+include README.md
+include README_CN.md
+include ../LICENSE
+
+# Include package data
+recursive-include agentscope_extension_nacos *.py
+recursive-include agentscope_extension_nacos py.typed
+
+# Exclude unnecessary files
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
+global-exclude *.so
+global-exclude *.dylib
+
+# Exclude test and example files from distribution
+prune tests
+prune example
+exclude .gitignore
+exclude .python-version
+

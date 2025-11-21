@@ -13,14 +13,24 @@
 
 ## 📋 前置要求
 
-- Python >= 3.7
-- [AgentScope](https://github.com/modelscope/agentscope) >= 0.1.0
+- Python >= 3.9
+- [AgentScope](https://github.com/modelscope/agentscope) >= 1.0.7
 - Nacos Server >= 3.1.0
 - [Nacos Python SDK](https://github.com/nacos-group/nacos-sdk-python) >= 3.0.0b1
 
 ## 📦 安装
 
-> **注意**：本包尚未正式发布到 PyPI，敬请期待。
+```bash
+pip install agentscope-extension-nacos
+```
+
+或从源码安装：
+
+```bash
+git clone https://github.com/nacos-group/agentscope-extensions-nacos.git
+cd agentscope-extensions-nacos/python
+pip install -e .
+```
 
 ## 🔧 配置 Nacos 连接
 
