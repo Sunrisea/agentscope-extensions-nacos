@@ -3,7 +3,7 @@ Test module for NacosExtension
 """
 
 import unittest
-from agentscope_nacos import NacosExtension
+from agentscope_extension_nacos import NacosExtension
 
 
 class TestNacosExtension(unittest.TestCase):
