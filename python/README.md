@@ -13,14 +13,24 @@ An extension component for the [AgentScope](https://github.com/modelscope/agents
 
 ## 📋 Prerequisites
 
-- Python >= 3.7
-- [AgentScope](https://github.com/modelscope/agentscope) >= 0.1.0
+- Python >= 3.9
+- [AgentScope](https://github.com/modelscope/agentscope) >= 1.0.7
 - Nacos Server >= 3.1.0
 - [Nacos Python SDK](https://github.com/nacos-group/nacos-sdk-python) >= 3.0.0b1
 
 ## 📦 Installation
 
-> **Note**: This package has not yet been officially released to PyPI. Stay tuned.
+```bash
+pip install agentscope-extension-nacos
+```
+
+Or install from source:
+
+```bash
+git clone https://github.com/nacos-group/agentscope-extensions-nacos.git
+cd agentscope-extensions-nacos/python
+pip install -e .
+```
 
 ## 🔧 Configuring Nacos Connection
 
