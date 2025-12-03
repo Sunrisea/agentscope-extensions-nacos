@@ -1,8 +1,9 @@
-import re
-import random
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+import random
+import re
 import socket
+from contextlib import asynccontextmanager
 
 import psutil
 from v2.nacos.ai.model.mcp.mcp import McpEndpointInfo, McpServerDetailInfo
@@ -100,9 +101,6 @@ def validate_agent_name(agent_name: str) -> str:
 
 	logger.debug(f"Agent name validated successfully: {agent_name}")
 	return agent_name
-
-
-import asyncio
 
 
 class AsyncRWLock:

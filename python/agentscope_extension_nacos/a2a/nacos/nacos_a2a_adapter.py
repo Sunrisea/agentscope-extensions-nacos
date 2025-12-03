@@ -5,21 +5,15 @@ from typing import Callable, Optional
 from a2a.server.apps import A2AFastAPIApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
-from a2a.types import AgentCard, AgentCapabilities, AgentSkill
-from agentscope_runtime.engine.agents import Agent
-from agentscope_runtime.engine.deployers.adapter.a2a import \
-	A2AFastAPIDefaultAdapter
-from agentscope_runtime.engine.deployers.adapter.a2a.a2a_agent_adapter import \
-	A2AExecutor
-from agentscope_runtime.engine.deployers.adapter.protocol_adapter import \
-	ProtocolAdapter
+from a2a.types import AgentCapabilities, AgentCard, AgentSkill
+from agentscope_runtime.engine.deployers.adapter.a2a.a2a_agent_adapter import A2AExecutor
+from agentscope_runtime.engine.deployers.adapter.protocol_adapter import ProtocolAdapter
 from v2.nacos import ClientConfig
-from v2.nacos.ai.model.ai_param import ReleaseAgentCardParam, \
-	RegisterAgentEndpointParam
+from v2.nacos.ai.model.ai_param import RegisterAgentEndpointParam, ReleaseAgentCardParam
 from v2.nacos.ai.nacos_ai_service import NacosAIService
 
-from agentscope_extension_nacos.utils import get_first_non_loopback_ip
 from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.utils import get_first_non_loopback_ip
 
 
 # Initialize logger
@@ -139,6 +133,7 @@ class A2AFastAPINacosAdaptor(ProtocolAdapter):
 		capabilities = AgentCapabilities(
 				streaming=False,
 				push_notifications=False,
+				state_transition_history=False,
 		)
 		
 		# Define agent skills

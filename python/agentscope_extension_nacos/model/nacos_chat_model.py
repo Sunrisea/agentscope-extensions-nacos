@@ -3,18 +3,32 @@ import json
 import logging
 from typing import Any, AsyncGenerator, Optional
 
-from agentscope.formatter import FormatterBase, DashScopeChatFormatter, \
-	GeminiChatFormatter, OllamaChatFormatter, AnthropicChatFormatter, \
-	OpenAIChatFormatter, DashScopeMultiAgentFormatter, \
-	GeminiMultiAgentFormatter, OllamaMultiAgentFormatter, \
-	AnthropicMultiAgentFormatter, OpenAIMultiAgentFormatter
-from agentscope.model import ChatModelBase, OpenAIChatModel, AnthropicChatModel, \
-	OllamaChatModel, GeminiChatModel, DashScopeChatModel, ChatResponse
-from v2.nacos import ClientConfig, NacosConfigService, ConfigParam
-from watchfiles import awatch
+from agentscope.formatter import (
+	AnthropicChatFormatter,
+	AnthropicMultiAgentFormatter,
+	DashScopeChatFormatter,
+	DashScopeMultiAgentFormatter,
+	FormatterBase,
+	GeminiChatFormatter,
+	GeminiMultiAgentFormatter,
+	OllamaChatFormatter,
+	OllamaMultiAgentFormatter,
+	OpenAIChatFormatter,
+	OpenAIMultiAgentFormatter,
+)
+from agentscope.model import (
+	AnthropicChatModel,
+	ChatModelBase,
+	ChatResponse,
+	DashScopeChatModel,
+	GeminiChatModel,
+	OllamaChatModel,
+	OpenAIChatModel,
+)
+from v2.nacos import ClientConfig, ConfigParam, NacosConfigService
 
-from agentscope_extension_nacos.utils import AsyncRWLock, validate_agent_name
 from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.utils import AsyncRWLock, validate_agent_name
 
 # Initialize logger
 logger = logging.getLogger(__name__)

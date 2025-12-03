@@ -3,18 +3,18 @@ import json
 import logging
 from typing import Literal, Optional
 
-from v2.nacos import ClientConfig, NacosConfigService, ConfigParam
-from v2.nacos.ai.nacos_ai_service import NacosAIService
 from agentscope.agent import ReActAgent
-from agentscope.memory import MemoryBase, LongTermMemoryBase
+from agentscope.memory import LongTermMemoryBase, MemoryBase
 from agentscope.plan import PlanNotebook
 from agentscope.rag import KnowledgeBase
-
-from agentscope_extension_nacos.mcp.agentscope_nacos_mcp import NacosHttpStatelessClient
-from agentscope_extension_nacos.model.nacos_chat_model import NacosChatModel, AutoFormatter
-from agentscope_extension_nacos.mcp.agentscope_dynamic_toolkit import DynamicToolkit
-from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
 from agentscope.tool import Toolkit
+from v2.nacos import ClientConfig, ConfigParam, NacosConfigService
+from v2.nacos.ai.nacos_ai_service import NacosAIService
+
+from agentscope_extension_nacos.mcp.agentscope_dynamic_toolkit import DynamicToolkit
+from agentscope_extension_nacos.mcp.agentscope_nacos_mcp import NacosHttpStatelessClient
+from agentscope_extension_nacos.model.nacos_chat_model import AutoFormatter, NacosChatModel
+from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
 
 # Initialize logger
 logger = logging.getLogger(__name__)

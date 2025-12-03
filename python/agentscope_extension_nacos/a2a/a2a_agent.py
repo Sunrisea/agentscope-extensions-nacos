@@ -4,7 +4,7 @@ import json
 import logging
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, Union, Optional, Type
+from typing import Any, Optional, Type, Union
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -13,16 +13,16 @@ from a2a.client import A2ACardResolver, A2AClient, ClientEvent
 from a2a.client.client import ClientConfig as A2AClientConfig
 from a2a.client.client_factory import ClientFactory as A2AClientFactory
 from a2a.types import (
-	AgentCard, 
-	A2ARequest, 
+	A2ARequest,
+	AgentCard,
 	Message as A2AMessage,
 	Part,
 	Role as A2ARole,
 	Task as A2ATask,
 	TaskState,
 	TextPart,
+	TransportProtocol as A2ATransport,
 )
-from a2a.types import TransportProtocol as A2ATransport
 from a2a.utils import AGENT_CARD_WELL_KNOWN_PATH
 from agentscope.agent import AgentBase
 from agentscope.message import Msg
@@ -73,7 +73,6 @@ class DefaultA2ACardResolver(A2ACardResolverBase):
 		self._agent_card_path = agent_card_path
 		
 		logger.debug(f"[{self.__class__.__name__}] Initialized with source: {agent_card_source}")
-
 
 	async def get_agent_card(
         self,
@@ -339,7 +338,7 @@ class A2aAgent(AgentBase):
 		if not self._a2a_client_factory:
 			client_config = A2AClientConfig(
 					httpx_client=self._httpx_client,
-					streaming=False,
+					streaming=True,
 					polling=False,
 					supported_transports=[A2ATransport.jsonrpc],
 			)
@@ -526,19 +525,9 @@ class A2aAgent(AgentBase):
 						response_msg = self._convert_task_to_msg(task)
 						logger.info(f"[{self.__class__.__name__}] Task completed successfully: {task.id}")
 						break
-						
-					elif task.status.state in [
-						TaskState.failed, 
-						TaskState.canceled, 
-						TaskState.rejected
-					]:
-						error_msg = ""
-						if task.status.message:
-							error_msg = f": {self._extract_text_from_message(task.status.message)}"
-						logger.error(f"[{self.__class__.__name__}] Task {task.id} {task.status.state.value}{error_msg}")
-						raise RuntimeError(
-							f"Task {task.id} {task.status.state.value}{error_msg}"
-						)
+					else:
+						response_msg = self._convert_task_to_msg(task)
+						logger.debug(f"[{self.__class__.__name__}] Task update: {task.status.state.value}, task_id: {task.id}")
 					
 					# Other states (working, submitted, input_required, etc.) - continue waiting
 		
@@ -688,18 +677,18 @@ class A2aAgent(AgentBase):
 	
 	def _convert_a2a_message_to_msg(self, a2a_msg: A2AMessage) -> Msg:
 		"""
-		将 A2A Message 转换为 AgentScope Msg
+		Convert A2A Message to AgentScope Msg
 		
 		Args:
-			a2a_msg: A2A 协议的消息对象
+			a2a_msg: A2A protocol message object
 			
 		Returns:
-			Msg: AgentScope 消息对象
+			Msg: AgentScope message object
 		"""
-		# 提取文本内容
+		# Extract text content
 		text_content = self._extract_text_from_parts(a2a_msg.parts)
 		
-		# 角色映射：A2A -> AgentScope
+		# Role mapping: A2A -> AgentScope
 		# Role.user -> "user"
 		# Role.agent -> "assistant"
 		if a2a_msg.role == A2ARole.user:
@@ -707,10 +696,10 @@ class A2aAgent(AgentBase):
 		elif a2a_msg.role == A2ARole.agent:
 			role = "assistant"
 		else:
-			role = "assistant"  # 默认
+			role = "assistant"  # default
 		
-		# 构建 AgentScope Msg
-		# 保留 A2A 的元数据
+		# Build AgentScope Msg
+		# Preserve A2A metadata
 		metadata = a2a_msg.metadata.copy() if a2a_msg.metadata else {}
 		metadata["a2a_message_id"] = a2a_msg.message_id
 		if a2a_msg.task_id:
@@ -729,53 +718,47 @@ class A2aAgent(AgentBase):
 	
 	def _convert_task_to_msg(self, task: A2ATask) -> Msg:
 		"""
-		从 A2A Task 中提取最终响应并转换为 Msg
+		Extract final response from A2A Task and convert to Msg
 		
 		Args:
-			task: A2A 协议的任务对象
+			task: A2A protocol task object
 			
 		Returns:
-			Msg: AgentScope 消息对象
+			Msg: AgentScope message object
 		"""
-		# 1. 从 Task 的历史消息中提取最后一条 agent 消息
 		text_content = ""
+
+		if task.status.state != TaskState.completed:
+			text_content = f"Task {task.id} status :{task.status.state}"
+			if task.status.message:
+				text_content += "\n"
+				text_content += f"message: {self._extract_text_from_message(task.status.message)}"
 		
-		if task.history:
-			# 从后往前找最后一条 agent 消息
-			for msg in reversed(task.history):
-				if msg.role == A2ARole.agent:
-					text_content = self._extract_text_from_parts(msg.parts)
-					break
-		
-		# 2. 如果历史中没有找到，尝试从 status.message 中提取
-		if not text_content and task.status.message:
-			text_content = self._extract_text_from_message(task.status.message)
-		
-		# 3. 提取 artifacts 中的文本内容
+		# 1. Extract text content from artifacts
 		if task.artifacts:
 			artifacts_text = self._extract_text_from_artifacts(task.artifacts)
 			if artifacts_text:
 				if text_content:
-					# 如果已有内容，追加 artifacts 文本
+					# If there is already content, append artifacts text
 					text_content += "\n\n" + artifacts_text
 				else:
-					# 如果没有内容，使用 artifacts 文本
+					# If there is no content, use artifacts text
 					text_content = artifacts_text
 		
-		# 4. 如果还是没有内容，使用默认消息
+		# 2. If still no content, use default message
 		if not text_content:
 			text_content = f"Task {task.id} completed"
 		
-		# 5. 构建 AgentScope Msg 元数据
+		# 3. Build AgentScope Msg metadata
 		metadata = {
 			"a2a_task_id": task.id,
 			"a2a_context_id": task.context_id,
 			"a2a_task_state": task.status.state.value,
 		}
 		
-		# 6. 处理 artifacts 的详细信息
+		# 4. Process artifacts detailed information
 		if task.artifacts:
-			# 保存基本信息
+			# Save basic information
 			metadata["a2a_artifacts_count"] = len(task.artifacts)
 			metadata["a2a_artifacts"] = [
 				{
@@ -786,12 +769,12 @@ class A2aAgent(AgentBase):
 				for art in task.artifacts
 			]
 			
-			# 提取并保存文件信息
+			# Extract and save file information
 			files = self._extract_files_from_artifacts(task.artifacts)
 			if files:
 				metadata["a2a_artifact_files"] = files
 			
-			# 提取并保存结构化数据
+			# Extract and save structured data
 			data = self._extract_data_from_artifacts(task.artifacts)
 			if data:
 				metadata["a2a_artifact_data"] = data
@@ -807,25 +790,25 @@ class A2aAgent(AgentBase):
 	
 	def _extract_text_from_parts(self, parts: list[Part]) -> str:
 		"""
-		从 A2A Parts 中提取文本内容
+		Extract text content from A2A Parts
 		
 		Args:
-			parts: A2A Part 列表
+			parts: A2A Part list
 			
 		Returns:
-			str: 提取的文本内容
+			str: Extracted text content
 		"""
 		text_segments = []
 		
 		for part in parts:
-			# Part 是一个 RootModel[TextPart | FilePart | DataPart]
-			# 需要访问 part.root 来获取实际内容
+			# Part is a RootModel[TextPart | FilePart | DataPart]
+			# Need to access part.root to get actual content
 			if hasattr(part, 'root'):
 				actual_part = part.root
 			else:
 				actual_part = part
 			
-			# 检查是否是 TextPart
+			# Check if it's TextPart
 			if isinstance(actual_part, TextPart):
 				text_segments.append(actual_part.text)
 			elif hasattr(actual_part, 'kind') and actual_part.kind == 'text':
@@ -835,13 +818,13 @@ class A2aAgent(AgentBase):
 	
 	def _extract_text_from_message(self, message: A2AMessage) -> str:
 		"""
-		从 A2A Message 中提取文本内容
+		Extract text content from A2A Message
 		
 		Args:
-			message: A2A 消息对象
+			message: A2A message object
 			
 		Returns:
-			str: 提取的文本内容
+			str: Extracted text content
 		"""
 		if message.parts:
 			return self._extract_text_from_parts(message.parts)
@@ -849,28 +832,28 @@ class A2aAgent(AgentBase):
 	
 	def _extract_text_from_artifacts(self, artifacts: list) -> str:
 		"""
-		从 artifacts 中提取文本内容并格式化展示
+		Extract text content from artifacts and format display
 		
 		Args:
-			artifacts: Artifact 对象列表
+			artifacts: Artifact object list
 			
 		Returns:
-			str: 格式化后的文本内容
+			str: Formatted text content
 		"""
 		sections = []
 		
 		for artifact in artifacts:
-			# 提取文本内容
+			# Extract text content
 			text = self._extract_text_from_parts(artifact.parts)
 			if text:
-				# 格式化：添加标题和描述
+				# Format: Add title and description
 				section = ""
 				if artifact.name or artifact.description:
 					section += "=" * 50 + "\n"
 					if artifact.name:
-						section += f"工件: {artifact.name}\n"
+						section += f"artifact : {artifact.name}\n"
 					if artifact.description:
-						section += f"说明: {artifact.description}\n"
+						section += f"content  : {artifact.description}\n"
 					section += "=" * 50 + "\n"
 				section += text
 				sections.append(section)
@@ -879,13 +862,13 @@ class A2aAgent(AgentBase):
 	
 	def _extract_files_from_artifacts(self, artifacts: list) -> list[dict]:
 		"""
-		从 artifacts 中提取文件信息
+		Extract file information from artifacts
 		
 		Args:
-			artifacts: Artifact 对象列表
+			artifacts: Artifact object list
 			
 		Returns:
-			list[dict]: 文件信息列表
+			list[dict]: File information list
 		"""
 		files = []
 		
@@ -893,7 +876,7 @@ class A2aAgent(AgentBase):
 			for part in artifact.parts:
 				actual_part = part.root if hasattr(part, 'root') else part
 				
-				# 检查是否是 FilePart
+				# Check if it's FilePart
 				if hasattr(actual_part, 'kind') and actual_part.kind == 'file':
 					file_info = {
 						"artifact_id": artifact.artifact_id,
@@ -907,13 +890,13 @@ class A2aAgent(AgentBase):
 	
 	def _extract_data_from_artifacts(self, artifacts: list) -> list[dict]:
 		"""
-		从 artifacts 中提取结构化数据
+		Extract structured data from artifacts
 		
 		Args:
-			artifacts: Artifact 对象列表
+			artifacts: Artifact object list
 			
 		Returns:
-			list[dict]: 结构化数据列表
+			list[dict]: Structured data list
 		"""
 		data_list = []
 		
@@ -921,7 +904,7 @@ class A2aAgent(AgentBase):
 			for part in artifact.parts:
 				actual_part = part.root if hasattr(part, 'root') else part
 				
-				# 检查是否是 DataPart
+				# Check if it's DataPart
 				if hasattr(actual_part, 'kind') and actual_part.kind == 'data':
 					data_info = {
 						"artifact_id": artifact.artifact_id,

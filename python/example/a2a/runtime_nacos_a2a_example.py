@@ -21,12 +21,13 @@ import os
 from contextlib import asynccontextmanager
 
 from agentscope.agent import ReActAgent
-from agentscope.model import DashScopeChatModel, OpenAIChatModel
+from agentscope.model import DashScopeChatModel
 from agentscope_runtime.engine import Runner, LocalDeployManager
 from agentscope_runtime.engine.agents.agentscope_agent import AgentScopeAgent
 from agentscope_runtime.engine.services.context_manager import ContextManager
 from v2.nacos import ClientConfigBuilder
-from agentscope_extension_nacos.a2a.nacos.nacos_a2a_adapter import (
+
+from agentscope_extension_nacos.a2a.nacos import (
     A2AFastAPINacosAdaptor,
 )
 
@@ -48,13 +49,13 @@ print("✅ AgentScope agent created successfully")
 async def create_runner():
     """Create and initialize the agent runner."""
     global agent
-    
+
     # Create AgentScope agent
     agent = AgentScopeAgent(
         name="Friday",
-        model=OpenAIChatModel(
-            "gpt-4",
-            api_key=os.getenv("OPENAI_API_KEY"),
+        model=DashScopeChatModel(
+            model_name="qwen-max",
+            api_key=os.getenv("DASH_SCOPE_API_KEY"),
         ),
         agent_config={
             "sys_prompt": "You're a helpful assistant named Friday.",

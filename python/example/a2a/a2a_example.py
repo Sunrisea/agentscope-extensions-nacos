@@ -26,15 +26,11 @@ Features:
 """
 
 import asyncio
-import os
+
+from agentscope.agent import UserAgent, UserInputBase, UserInputData
+from agentscope.message import TextBlock
 
 from agentscope_extension_nacos.a2a.a2a_agent import A2aAgent
-from agentscope_extension_nacos.nacos_react_agent import (
-    NacosAgentListener,
-    NacosReActAgent,
-)
-from agentscope.agent import ReActAgent, UserAgent, UserInputBase, UserInputData
-from agentscope.message import Msg, TextBlock
 
 
 async def creating_a2a_agent() -> None:
@@ -44,7 +40,7 @@ async def creating_a2a_agent() -> None:
     # The URL should point to the agent's Agent Card
     # Default well-known path: /.well-known/agent.json
     jarvis = A2aAgent(
-        agent_card_source="http://localhost:9999",
+        agent_card_source="http://localhost:8090",
     )
 
     # Custom user input handler that runs in thread pool to avoid blocking

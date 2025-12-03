@@ -1,11 +1,10 @@
 import asyncio
 import logging
-from typing import Optional, Any
+from typing import Any, Optional
 
 from a2a.types import AgentCard
 from v2.nacos import ClientConfig
-from v2.nacos.ai.model.ai_param import GetAgentCardParam, \
-	SubscribeAgentCardParam
+from v2.nacos.ai.model.ai_param import GetAgentCardParam, SubscribeAgentCardParam
 
 from agentscope_extension_nacos.a2a.a2a_agent import A2ACardResolverBase
 from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager

@@ -1,25 +1,22 @@
-from abc import ABC, abstractmethod
-from typing import Any, Callable, Awaitable, List, Literal, TYPE_CHECKING, Optional
 import asyncio
-import weakref
 import logging
+import weakref
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, List, Literal, Optional
 
 import mcp
-from agentscope.mcp import MCPToolFunction, MCPClientBase, StatefulClientBase
+from agentscope.mcp import MCPClientBase, MCPToolFunction, StatefulClientBase
 from agentscope.tool import ToolResponse, Toolkit
 from mcp import ClientSession, StdioServerParameters, stdio_client
 from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamablehttp_client
 from v2.nacos import ClientConfig
-from v2.nacos.ai.model.ai_param import GetMcpServerParam, \
-	SubscribeMcpServerParam
+from v2.nacos.ai.model.ai_param import GetMcpServerParam, SubscribeMcpServerParam
 from v2.nacos.ai.model.mcp.mcp import McpServerDetailInfo
 from v2.nacos.ai.nacos_ai_service import NacosAIService
 
-
 from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
-from agentscope_extension_nacos.utils import \
-	random_generate_url_from_mcp_server_detail_info
+from agentscope_extension_nacos.utils import random_generate_url_from_mcp_server_detail_info
 
 if TYPE_CHECKING:
 	from agentscope.tool import Toolkit

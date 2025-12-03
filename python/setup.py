@@ -18,7 +18,7 @@ except FileNotFoundError:
 
 setup(
     name="agentscope-extension-nacos",
-    version="0.2.0",
+    version="0.2.1",
     author="AgentScope Team",
     description="Nacos extension component for AgentScope - Python SDK",
     long_description=long_description,
