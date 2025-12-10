@@ -17,20 +17,22 @@
 package io.agentscope.extensions.a2a.agent.message;
 
 import io.a2a.spec.Part;
-import io.a2a.spec.TextPart;
-import io.agentscope.core.message.TextBlock;
-import io.agentscope.extensions.a2a.agent.utils.MessageConvertUtil;
+import io.agentscope.core.message.AudioBlock;
 
 /**
- * Parser for {@link TextBlock} to {@link io.a2a.spec.TextPart}.
+ * Parser for {@link AudioBlock} to {@link io.a2a.spec.FilePart}.
  *
  * @author xiweng.yy
  */
-public class TextBlockParser implements ContentBlockParser<TextBlock> {
+public class AudioBlockParser extends BaseMediaBlockParser<AudioBlock> {
     
     @Override
-    public Part<?> parse(TextBlock contentBlock) {
-        return new TextPart(contentBlock.getText(),
-                MessageConvertUtil.buildTypeMetadata(MessageConstants.BlockContent.TYPE_TEXT));
+    protected String getMediaType() {
+        return MessageConstants.BlockContent.TYPE_AUDIO;
+    }
+    
+    @Override
+    public Part<?> parse(AudioBlock contentBlock) {
+        return parseSource(contentBlock.getSource());
     }
 }
