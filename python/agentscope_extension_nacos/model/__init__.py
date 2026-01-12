@@ -22,7 +22,7 @@ Usage Examples:
     >>> from v2.nacos import ClientConfigBuilder
     >>> config = ClientConfigBuilder().server_address("localhost:8848").build()
     >>> model = NacosChatModel(
-    ...     agent_name="my_agent",
+    ...     model_key="my-model",
     ...     nacos_client_config=config,  # Pass custom config
     ...     stream=True,
     ... )

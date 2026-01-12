@@ -27,8 +27,8 @@ from agentscope.model import (
 )
 from v2.nacos import ClientConfig, ConfigParam, NacosConfigService
 
-from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
-from agentscope_extension_nacos.utils import AsyncRWLock, validate_agent_name
+from agentscope_extension_nacos.utils.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.utils.utils import AsyncRWLock
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class NacosChatModel(ChatModelBase):
 		- Backup model fallback mechanism
 	
 	Args:
-		agent_name: Name of the agent
+		model_key: Key to identify the model configuration in Nacos (DataId: {model_key}.json)
 		nacos_client_config: Nacos client configuration. If not provided, uses global config
 		stream: Whether to enable streaming mode
 		client_args: Additional client arguments
@@ -57,7 +57,7 @@ class NacosChatModel(ChatModelBase):
 	Example:
 		```python
 		model = NacosChatModel(
-			agent_name="my_agent",
+			model_key="my-model",
 			stream=True,
 			backup_model=OpenAIChatModel(...)
 		)
@@ -67,7 +67,7 @@ class NacosChatModel(ChatModelBase):
 
 	def __init__(
 		self,
-		agent_name: str,
+		model_key: str,
 		nacos_client_config: Optional[ClientConfig] = None,
 		stream: bool = True,
 		client_args: dict | None = None,
@@ -79,8 +79,8 @@ class NacosChatModel(ChatModelBase):
 		self._init_lock = asyncio.Lock()
 		
 		self.client_args = client_args or {}
-		self.agent_name = validate_agent_name(agent_name)
-		super().__init__(agent_name, stream=stream)
+		self._model_key = model_key  # Store the Nacos config key
+		super().__init__(model_key, stream=stream)
 		self._nacos_client_config: Optional[ClientConfig] = nacos_client_config
 		self.nacos_config_service: NacosConfigService | None = None
 		self.chat_model: ChatModelBase | None = None
@@ -88,12 +88,12 @@ class NacosChatModel(ChatModelBase):
 
 		self.api_key: str | None = None
 		self.args: dict = {}
-		self.model_name = ""
+		self.model_name = ""  # Actual model name from config
 		self.model_provider = "openai"
 		self.base_url = ""
 		self._backup_model: ChatModelBase | None = backup_model
 		
-		logger.debug(f"[{self.__class__.__name__}] Initialized for agent: {agent_name}")
+		logger.debug(f"[{self.__class__.__name__}] Initialized for model key: {model_key}")
 
 	async def _ensure_initialized(self):
 		"""Ensure ChatModel is initialized (thread-safe lazy initialization).
@@ -116,12 +116,12 @@ class NacosChatModel(ChatModelBase):
 			
 			self._initializing = True
 			try:
-				logger.info(f"[{self.__class__.__name__}] Starting initialization for agent: {self.agent_name}")
+				logger.info(f"[{self.__class__.__name__}] Starting initialization for model key: {self._model_key}")
 				await self._async_init()
 				self._initialized = True
-				logger.info(f"[{self.__class__.__name__}] Successfully initialized for agent: {self.agent_name}")
+				logger.info(f"[{self.__class__.__name__}] Successfully initialized for model key: {self._model_key}")
 			except Exception as e:
-				logger.error(f"[{self.__class__.__name__}] Initialization failed for agent {self.agent_name}: {e}", exc_info=True)
+				logger.error(f"[{self.__class__.__name__}] Initialization failed for model key {self._model_key}: {e}", exc_info=True)
 				raise
 			finally:
 				self._initializing = False
@@ -135,10 +135,9 @@ class NacosChatModel(ChatModelBase):
 		manager = NacosServiceManager()
 		self.nacos_config_service = await manager.get_config_service(
 			self._nacos_client_config)
-		logger.debug(f"[{self.__class__.__name__}] Obtained Nacos config service for agent: {self.agent_name}")
 
-		user_model_config_group_name = f"ai-agent-{self.agent_name}"
-		user_model_config_data_id = "model.json"
+		user_model_config_group_name = "nacos-ai-model"
+		user_model_config_data_id = f"{self._model_key}.json"
 		user_model_config = await self.nacos_config_service.get_config(
 				ConfigParam(
 						data_id=user_model_config_data_id,
@@ -146,12 +145,14 @@ class NacosChatModel(ChatModelBase):
 				))
 
 		if user_model_config is None or len(user_model_config) == 0:
-			logger.error(f"[{self.__class__.__name__}] No model config found for agent {self.agent_name}")
+			logger.error(f"[{self.__class__.__name__}] No model config found for model key {self._model_key}")
 			raise Exception(
-					f"No model config found for agent {self.agent_name}")
+					f"No model config found for model key {self._model_key}")
 
 		model_config = json.loads(user_model_config)
-		self.model_name = model_config["modelName"]
+		self.model_name = model_config.get("modelName", model_config.get("model", ""))
+		if not self.model_name:
+			raise Exception(f"modelName not found in config for model key {self._model_key}")
 		self.api_key = model_config.get("apiKey", "")
 		self.model_provider = model_config.get("modelProvider", "openai")
 		self.base_url = model_config.get("baseUrl", "")
@@ -163,20 +164,22 @@ class NacosChatModel(ChatModelBase):
 			await self.set_chat_model(self.generate_chat_model())
 			logger.info(f"[{self.__class__.__name__}] Chat model created successfully")
 		except Exception as e:
-			logger.error(f"[{self.__class__.__name__}] Failed to create chat model: {e}")
 			if self._backup_model is not None:
 				logger.info(f"[{self.__class__.__name__}] Falling back to backup model")
 				await self.set_chat_model(self._backup_model)
 			else:
 				raise Exception(
-						f"Failed to create chat model for agent {self.agent_name}: {e}")
+						f"Failed to create chat model for model key {self._model_key}: {e}")
 
 		async def user_model_config_listener(tenant, data_id, group, content):
 			"""Listener for user model configuration changes"""
 			logger.info(f"[{self.__class__.__name__}] User model config changed - data_id: {data_id}, group: {group}")
 			try:
 				_model_config = json.loads(content)
-				self.model_name = _model_config["modelName"]
+				self.model_name = _model_config.get("modelName", _model_config.get("model", ""))
+				if not self.model_name:
+					logger.error(f"[{self.__class__.__name__}] modelName not found in updated config")
+					return
 				self.api_key = _model_config.get("apiKey", "")
 				self.model_provider = _model_config.get("modelProvider",
 													   "openai")
@@ -191,7 +194,7 @@ class NacosChatModel(ChatModelBase):
 					await self.set_chat_model(self._backup_model)
 				else:
 					raise Exception(
-						f"Failed to create chat model for agent {self.agent_name}: {e}")
+						f"Failed to create chat model for model key {self._model_key}: {e}")
 
 
 		await self.nacos_config_service.add_listener(
@@ -311,13 +314,6 @@ class NacosChatModel(ChatModelBase):
 		async with self.model_lock.read_lock():
 			return await self.chat_model(*args, **kwargs)
 
-	async def close(self):
-		"""Close connection and clean up resources"""
-		if self.nacos_config_service:
-			logger.info(f"[{self.__class__.__name__}] Closing Nacos config service for agent: {self.agent_name}")
-			await self.nacos_config_service.shutdown()
-			logger.debug(f"[{self.__class__.__name__}] Nacos config service closed")
-
 
 class AutoFormatter(FormatterBase):
 	"""Automatic formatter selector based on model provider.
@@ -345,14 +341,14 @@ class AutoFormatter(FormatterBase):
 		self.formatter_dict[str(False)] = {}
 		self.formatter_dict[str(True)] = {}
 
-		self.formatter_dict[str(False)]["dashScope"] = DashScopeChatFormatter()
+		self.formatter_dict[str(False)]["dashscope"] = DashScopeChatFormatter()
 		self.formatter_dict[str(False)]["gemini"] = GeminiChatFormatter()
 		self.formatter_dict[str(False)]["ollama"] = OllamaChatFormatter()
 		self.formatter_dict[str(False)]["anthropic"] = AnthropicChatFormatter()
 		self.formatter_dict[str(False)]["openai"] = OpenAIChatFormatter()
 
 		self.formatter_dict[str(True)][
-			"dashScope"] = DashScopeMultiAgentFormatter()
+			"dashscope"] = DashScopeMultiAgentFormatter()
 		self.formatter_dict[str(True)]["gemini"] = GeminiMultiAgentFormatter()
 		self.formatter_dict[str(True)]["ollama"] = OllamaMultiAgentFormatter()
 		self.formatter_dict[str(True)][

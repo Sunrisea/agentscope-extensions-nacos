@@ -2,7 +2,7 @@
 """Dynamic Toolkit - Toolkit extension supporting Nacos MCP tool auto-update"""
 
 import logging
-from typing import Any, Callable, Literal, Type, AsyncGenerator
+from typing import Any, Callable, Literal, Type, AsyncGenerator, Awaitable
 
 from agentscope.mcp import MCPClientBase
 from agentscope.message import ToolUseBlock
@@ -104,10 +104,23 @@ class DynamicToolkit(Toolkit):
 		enable_funcs: list[str] | None = None,
 		disable_funcs: list[str] | None = None,
 		preset_kwargs_mapping: dict[str, dict[str, Any]] | None = None,
-		postprocess_func: Callable[
-			[ToolUseBlock, ToolResponse],
-			ToolResponse | None,
-		] | None = None,
+		postprocess_func: (
+            Callable[
+                [ToolUseBlock, ToolResponse],
+                ToolResponse | None,
+            ]
+            | Callable[
+                [ToolUseBlock, ToolResponse],
+                Awaitable[ToolResponse | None],
+            ]
+        )
+        | None = None,
+		namesake_strategy: Literal[
+			"override",
+			"skip",
+			"raise",
+			"rename",
+		] = "raise",
 	) -> None:
 		"""Register MCP client and automatically establish dynamic update association.
 		
@@ -132,6 +145,7 @@ class DynamicToolkit(Toolkit):
 			disable_funcs=disable_funcs,
 			preset_kwargs_mapping=preset_kwargs_mapping,
 			postprocess_func=postprocess_func,
+			namesake_strategy=namesake_strategy
 		)
 		
 		# If NacosMCPClientBase, auto-establish bidirectional binding
@@ -216,24 +230,33 @@ class DynamicToolkit(Toolkit):
 	def remove_tool_groups(self, group_names: str | list[str]) -> None:
 		self._toolkit.remove_tool_groups(group_names=group_names)
 
-	def register_tool_function(  # pylint: disable=too-many-branches
-			self,
-			tool_func: ToolFunction,
-			group_name: str | Literal["basic"] = "basic",
-			preset_kwargs: dict[str, JSONSerializableObject] | None = None,
-			func_description: str | None = None,
-			json_schema: dict | None = None,
-			include_long_description: bool = True,
-			include_var_positional: bool = False,
-			include_var_keyword: bool = False,
-			postprocess_func: Callable[
-								  [
-									  ToolUseBlock,
-									  ToolResponse,
-								  ],
-								  ToolResponse | None,
-							  ]
-							  | None = None,
+	def register_tool_function(
+		self,
+		tool_func: ToolFunction,
+		group_name: str | Literal["basic"] = "basic",
+		preset_kwargs: dict[str, JSONSerializableObject] | None = None,
+		func_description: str | None = None,
+		json_schema: dict | None = None,
+		include_long_description: bool = True,
+		include_var_positional: bool = False,
+		include_var_keyword: bool = False,
+		postprocess_func: (
+            Callable[
+                [ToolUseBlock, ToolResponse],
+                ToolResponse | None,
+            ]
+            | Callable[
+                [ToolUseBlock, ToolResponse],
+                Awaitable[ToolResponse | None],
+            ]
+        )
+        | None = None,
+		namesake_strategy: Literal[
+			"override",
+			"skip",
+			"raise",
+			"rename",
+		] = "raise",
 	) -> None:
 		self._toolkit.register_tool_function(
 			tool_func=tool_func,
@@ -245,9 +268,14 @@ class DynamicToolkit(Toolkit):
 			include_var_positional=include_var_positional,
 			include_var_keyword=include_var_keyword,
 			postprocess_func=postprocess_func,
+			namesake_strategy=namesake_strategy,
 		)
 
-	def remove_tool_function(self, tool_name: str) -> None:
+	def remove_tool_function(
+		self,
+        tool_name: str,
+        allow_not_exist: bool = True,
+	) -> None:
 		self._toolkit.remove_tool_function(tool_name=tool_name)
 
 	def get_json_schemas(

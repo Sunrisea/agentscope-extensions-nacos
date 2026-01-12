@@ -15,8 +15,9 @@ from v2.nacos.ai.model.ai_param import GetMcpServerParam, SubscribeMcpServerPara
 from v2.nacos.ai.model.mcp.mcp import McpServerDetailInfo
 from v2.nacos.ai.nacos_ai_service import NacosAIService
 
-from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
-from agentscope_extension_nacos.utils import random_generate_url_from_mcp_server_detail_info
+from agentscope_extension_nacos.utils.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.utils.utils import \
+	random_generate_url_from_mcp_server_detail_info
 
 if TYPE_CHECKING:
 	from agentscope.tool import Toolkit
@@ -443,8 +444,8 @@ class NacosHttpStatelessClient(NacosMCPClientBase):
 
 	def __init__(
 			self,
-			nacos_client_config: ClientConfig,
 			name: str,
+			nacos_client_config: ClientConfig | None = None,
 			headers: dict[str, str] | None = None,
 			timeout: float = 30,
 			sse_read_timeout: float = 60 * 5,
@@ -544,8 +545,8 @@ class NacosStatefulClientBase(NacosMCPClientBase, StatefulClientBase, ABC):
 		- Session state preservation
 	"""
 
-	def __init__(self, nacos_client_config: ClientConfig,
-			name: str) -> None:
+	def __init__(self, name: str,
+			nacos_client_config: ClientConfig | None = None) -> None:
 
 		StatefulClientBase.__init__(self, name=name)
 
@@ -598,8 +599,8 @@ class NacosStatefulClientBase(NacosMCPClientBase, StatefulClientBase, ABC):
 
 class NacosHttpStatefulClient(NacosStatefulClientBase):
 
-	def __init__(self, nacos_client_config: ClientConfig,
-			name: str,
+	def __init__(self, name: str,
+			nacos_client_config: ClientConfig | None = None,
 			headers: dict[str, str] | None = None,
 			timeout: float = 30,
 			sse_read_timeout: float = 60 * 5,
@@ -640,8 +641,8 @@ class NacosStdIOStatefulClient(NacosStatefulClientBase):
 
 	def __init__(
 			self,
-			nacos_client_config: ClientConfig,
 			name: str,
+			nacos_client_config: ClientConfig | None = None,
 			env: dict[str, str] | None = None,
 			cwd: str | None = None,
 			encoding: str = "utf-8",
