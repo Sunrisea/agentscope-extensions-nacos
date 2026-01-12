@@ -34,7 +34,7 @@ from v2.nacos import ClientConfigBuilder
 # Configure Nacos connection
 client_config = (
     ClientConfigBuilder()
-    .server_address("mse-ad4e5e20-p.nacos-ans.mse.aliyuncs.com:8848")
+    .server_address("localhost:8848")
     .namespace_id("public")
     .log_level("DEBUG")  # Set to DEBUG level for detailed logs
     .build()
