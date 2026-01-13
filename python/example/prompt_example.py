@@ -1,17 +1,21 @@
 """
-Example: MCP Tool Integration with Nacos
+Example: Prompt Configuration Hosting with Nacos
 
-This example demonstrates how to use MCP (Model Context Protocol) tools
-from Nacos MCP Registry with dynamic tool updates.
+This example demonstrates how to use NacosPromptListener to dynamically manage
+prompt templates through Nacos, with support for variable rendering and hot updates.
 
-Prerequisites:
-    - MCP servers must be registered in Nacos MCP Registry first
-    - In this example, we use "nacos-mcp-1" and "nacos-mcp-2"
+Required Nacos Configuration:
+    Group: nacos-ai-prompt
+    DataId: my-assistant.json
+    Content: {
+        "template": "You are {{role}}, a helpful assistant specialized in {{domain}}. Please respond in {{language}}."
+    }
 
 Features:
-    - Automatic tool discovery from Nacos MCP Registry
-    - Dynamic tool list updates without restart
-    - Support for both stateless and stateful MCP clients
+    - Dynamic prompt template management from Nacos
+    - Variable rendering with {{variable}} syntax
+    - Hot updates without restart when prompt changes in Nacos
+    - Automatic agent prompt synchronization
 """
 
 import asyncio
@@ -19,17 +23,12 @@ import os
 
 from agentscope.model import DashScopeChatModel
 from agentscope_extension_nacos.utils.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.prompt.nacos_prompt_listener import NacosPromptListener
 from agentscope.agent import ReActAgent, UserAgent, UserInputBase, UserInputData
 from agentscope.formatter import DashScopeChatFormatter
 from agentscope.memory import InMemoryMemory
 from agentscope.message import TextBlock
 from v2.nacos import ClientConfigBuilder
-from agentscope_extension_nacos.mcp.agentscope_nacos_mcp import (
-    NacosHttpStatelessClient,
-    NacosHttpStatefulClient,
-)
-# Use DynamicToolkit instead of Toolkit to support dynamic tool updates
-from agentscope_extension_nacos.mcp.agentscope_dynamic_toolkit import DynamicToolkit
 
 
 # Configure Nacos connection
@@ -46,37 +45,40 @@ NacosServiceManager.set_global_config(client_config)
 
 
 async def creating_react_agent() -> None:
-    """Create a ReAct agent with MCP tools from Nacos MCP Registry."""
+    """Create a ReAct agent with Nacos-managed prompt template."""
 
-    # Create MCP clients from Nacos MCP Registry
-    # The MCP server names must match those registered in Nacos
-    stateless_client = NacosHttpStatelessClient("nacos-mcp-1")
-    stateful_client = NacosHttpStatefulClient("nacos-mcp-2")
+    # Create Nacos prompt listener with template variables
+    # Variables in the template (e.g., {{role}}, {{domain}}) will be replaced
+    # with values from the args dictionary
+    prompt_listener = NacosPromptListener(
+        prompt_key="my-assistant",
+        args={
+            "role": "Jarvis",
+            "domain": "programming and technology",
+            "language": "Chinese",
+        },
+    )
 
-    # Create dynamic toolkit
-    # DynamicToolkit automatically syncs with Nacos when tool configurations change
-    toolkit = DynamicToolkit()
-    
-    # Connect stateful client before registering
-    await stateful_client.connect()
-    
-    # Register MCP clients to toolkit
-    # Tools from these servers will be available to the agent
-    await toolkit.register_mcp_client(stateful_client)
-    await toolkit.register_mcp_client(stateless_client)
-
-    # Build agent with MCP tools
+    # Build agent with a placeholder prompt (will be updated by listener)
     jarvis = ReActAgent(
         name="Jarvis",
-        sys_prompt="You are an AI assistant",
+        sys_prompt="",  # Will be set by NacosPromptListener
         model=DashScopeChatModel(
             model_name="qwen-max",
             api_key=os.getenv("DASH_SCOPE_API_KEY"),
         ),
         formatter=DashScopeChatFormatter(),
-        toolkit=toolkit,  # Agent can now use MCP tools
         memory=InMemoryMemory(),
     )
+
+    # Attach agent to prompt listener
+    # The listener will automatically update agent's sys_prompt when:
+    # 1. Initial configuration is loaded from Nacos
+    # 2. Prompt configuration changes in Nacos (hot update)
+    prompt_listener.attach_agent(jarvis)
+
+    # Initialize the listener (loads prompt from Nacos and sets up change listener)
+    await prompt_listener.initialize()
 
     # Custom user input handler that runs in thread pool to avoid blocking
     class ThreadedTerminalInput(UserInputBase):
@@ -108,6 +110,9 @@ async def creating_react_agent() -> None:
         msg = await user(msg)
         if msg.get_text_content() == "exit":
             break
+
+    # Cleanup: detach agent when done
+    prompt_listener.detach_agent()
 
 
 if __name__ == "__main__":

@@ -2,21 +2,29 @@
 
 English | [简体中文](./README_CN.md)
 
-An extension component for the [AgentScope](https://github.com/modelscope/agentscope) framework that provides Nacos integration capabilities, supporting dynamic configuration management, MCP tool integration, and A2A agent communication.
+An extension component for the [AgentScope](https://github.com/modelscope/agentscope) framework that provides Nacos integration capabilities, supporting dynamic configuration management and MCP tool integration.
 
 ## ✨ Key Features
 
 - 🔄 **Dynamic Configuration Management**: Host agent configurations (prompts, model configs, tool lists, etc.) in Nacos for centralized management and real-time hot updates without restarting the application
 - 🛠️ **MCP Tool Integration**: Automatically discover and register tool servers from the Nacos MCP Registry with dynamic tool list updates
-- 🤝 **A2A Agent Communication**: Support standard A2A protocol for agent-to-agent interconnection
 - 🎯 **Multi-Model Support**: Support for OpenAI, Anthropic, Ollama, Google Gemini, Alibaba Cloud Qwen, and more
 
 ## 📋 Prerequisites
 
 - Python >= 3.9
 - [AgentScope](https://github.com/modelscope/agentscope) >= 1.0.7
+- [AgentScope Runtime](https://github.com/modelscope/agentscope) >= 1.0.1
 - Nacos Server >= 3.1.0
-- [Nacos Python SDK](https://github.com/nacos-group/nacos-sdk-python) >= 3.0.0b1
+- [Nacos Python SDK](https://github.com/nacos-group/nacos-sdk-python) >= 3.0.2
+
+## 📝 Version Compatibility
+
+| Extension Version | AgentScope | AgentScope Runtime | Nacos Server |
+|-------------------|------------|--------------------|--------------|
+| 1.0.0             | >= 1.0.7   | >= 1.0.1           | >= 3.1.0     |
+
+> **Note**: Starting from version 1.0.0, the A2A protocol implementation has been removed from this extension. AgentScope now natively supports the A2A protocol with Nacos as the A2A Registry. Please use the built-in A2A support in AgentScope directly.
 
 ## 📦 Installation
 
@@ -58,15 +66,15 @@ export NACOS_SECRET_KEY=your-secret-key
 
 ```python
 from v2.nacos import ClientConfigBuilder
-from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.utils.nacos_service_manager import NacosServiceManager
 
 # Configure Nacos connection
 client_config = (ClientConfigBuilder()
-    .server_address("localhost:8848")
-    .namespace_id("public")
-    .username("nacos")
-    .password("nacos")
-    .build())
+				 .server_address("localhost:8848")
+				 .namespace_id("public")
+				 .username("nacos")
+				 .password("nacos")
+				 .build())
 
 # Set as global configuration
 NacosServiceManager.set_global_config(client_config)
@@ -84,8 +92,8 @@ Host model configuration in Nacos to enable dynamic model switching and paramete
 
 Create the following configuration in the Nacos console:
 
-**Group**: `ai-agent-{agent_name}` (e.g., `ai-agent-my-agent`)  
-**DataId**: `model.json`  
+**Group**: `nacos-ai-model`  
+**DataId**: `{model_key}.json` (e.g., `my-model.json`)  
 **Format**: JSON
 
 ```json
@@ -113,51 +121,53 @@ Create the following configuration in the Nacos console:
 ```python
 import asyncio
 from v2.nacos import ClientConfigBuilder
-from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.utils.nacos_service_manager import NacosServiceManager
 from agentscope_extension_nacos.model.nacos_chat_model import NacosChatModel
 from agentscope.agent import ReActAgent
 from agentscope.formatter import OpenAIChatFormatter
 from agentscope.memory import InMemoryMemory
 
+
 async def main():
-    # 1. Configure Nacos connection
-    client_config = (ClientConfigBuilder()
-        .server_address("localhost:8848")
-        .namespace_id("public")
-        .username("nacos")
-        .password("nacos")
-        .build())
-    NacosServiceManager.set_global_config(client_config)
-    
-    # 2. Create Nacos-managed model
-    model = NacosChatModel(
-        agent_name="my-agent",  # Corresponds to the configuration in Nacos
-        stream=True
-    )
-    
-    # 3. Use in agent
-    agent = ReActAgent(
-        name="MyAgent",
-        sys_prompt="You are an AI assistant",
-        model=model,
-        formatter=OpenAIChatFormatter(),
-        memory=InMemoryMemory()
-    )
-    
-    # 4. Use the agent
-    from agentscope.message import Msg
-    response = await agent(Msg(
-        name="user",
-        content="Hello",
-        role="user"
-    ))
-    print(response.content)
-    
-    # 5. Cleanup resources
-    await NacosServiceManager.cleanup()
+	# 1. Configure Nacos connection
+	client_config = (ClientConfigBuilder()
+					 .server_address("localhost:8848")
+					 .namespace_id("public")
+					 .username("nacos")
+					 .password("nacos")
+					 .build())
+	NacosServiceManager.set_global_config(client_config)
+
+	# 2. Create Nacos-managed model
+	model = NacosChatModel(
+			model_key="my-model",  # Corresponds to DataId: my-model.json in Group: nacos-ai-model
+			stream=True
+	)
+
+	# 3. Use in agent
+	agent = ReActAgent(
+			name="MyAgent",
+			sys_prompt="You are an AI assistant",
+			model=model,
+			formatter=OpenAIChatFormatter(),
+			memory=InMemoryMemory()
+	)
+
+	# 4. Use the agent
+	from agentscope.message import Msg
+	response = await agent(Msg(
+			name="user",
+			content="Hello",
+			role="user"
+	))
+	print(response.content)
+
+	# 5. Cleanup resources
+	await NacosServiceManager.cleanup()
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+	asyncio.run(main())
 ```
 
 #### 3. Dynamic Model Configuration Updates
@@ -166,170 +176,94 @@ After modifying the `model.json` configuration in the Nacos console, the agent w
 
 ---
 
-### Scenario 2: Complete Agent Hosting (Recommended)
+### Scenario 2: Prompt Configuration Hosting
 
-Host all agent configurations (prompts, models, tools) in Nacos for unified management.
+Host prompt templates in Nacos with support for variable rendering and hot updates.
 
-#### 1. Create Configurations in Nacos
+#### 1. Create Prompt Configuration in Nacos
 
-**Configuration 1: Prompt Configuration**
+Create the following configuration in the Nacos console:
 
-**Group**: `ai-agent-{agent_name}` (e.g., `ai-agent-my-agent`)  
-**DataId**: `prompt.json`  
-**Format**: JSON
-
-You can directly fill in the desired Prompt content in prompt.json:
-
-```json
-{
-  "prompt": "You are a helpful AI assistant that can answer various questions."
-}
-```
-
-Or reference an already created Prompt in the MSE Nacos Prompt Management module:
-
-```json
-{
-  "promptRef": "{promptKey}.json"
-}
-```
-
-Where `promptKey` is the corresponding Prompt name in the MSE Nacos Prompt Management module.
-
-**Configuration 2: Model Configuration**
-
-**Group**: `ai-agent-{agent_name}`  
-**DataId**: `model.json`  
+**Group**: `nacos-ai-prompt`  
+**DataId**: `{prompt_key}.json` (e.g., `my-assistant.json`)  
 **Format**: JSON
 
 ```json
 {
-  "modelName": "qwen-max",
-  "modelProvider": "dashscope",
-  "apiKey": "sk-your-api-key",
-  "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-  "args": {
-    "temperature": 0.7,
-    "max_tokens": 2000
-  }
+  "template": "You are {{role}}, a helpful assistant specialized in {{domain}}. Please respond in {{language}}."
 }
 ```
 
-**Configuration 3: MCP Server Configuration (Optional)**
-
-**Group**: `ai-agent-{agent_name}`  
-**DataId**: `mcp-server.json`  
-**Format**: JSON
-
-```json
-{
-  "mcpServers": [
-    {"mcpServerName": "weather-tools"},
-    {"mcpServerName": "calculator-tools"}
-  ]
-}
-```
-
-> **Note**: MCP servers must be registered in the Nacos MCP Registry first.
+The template supports `{{variable}}` syntax for variable rendering.
 
 #### 2. Use in Code
 
 ```python
 import asyncio
+import os
 from v2.nacos import ClientConfigBuilder
-from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
-from agentscope_extension_nacos.nacos_react_agent import (
-    NacosAgentListener,
-    NacosReActAgent
-)
-from agentscope.message import Msg
+from agentscope_extension_nacos.utils.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.prompt.nacos_prompt_listener import NacosPromptListener
+from agentscope.agent import ReActAgent
+from agentscope.model import DashScopeChatModel
+from agentscope.formatter import DashScopeChatFormatter
+from agentscope.memory import InMemoryMemory
+
 
 async def main():
     # 1. Configure Nacos connection
     client_config = (ClientConfigBuilder()
-        .server_address("localhost:8848")
-        .namespace_id("public")
-        .username("nacos")
-        .password("nacos")
-        .build())
+                     .server_address("localhost:8848")
+                     .namespace_id("public")
+                     .username("nacos")
+                     .password("nacos")
+                     .build())
     NacosServiceManager.set_global_config(client_config)
-    
-    # 2. Create agent listener
-    listener = NacosAgentListener(agent_name="my-agent")
-    await listener.initialize()
-    
-    # 3. Create fully Nacos-managed agent
-    agent = NacosReActAgent(
-        nacos_agent_listener=listener,
-        name="MyAgent"
+
+    # 2. Create Nacos prompt listener with template variables
+    prompt_listener = NacosPromptListener(
+        prompt_key="my-assistant",  # Corresponds to DataId: my-assistant.json
+        args={
+            "role": "Jarvis",
+            "domain": "programming and technology",
+            "language": "English",
+        },
     )
-    
-    # 4. Chat with the agent
-    response = await agent(Msg(
-        name="user",
-        content="Hello, please introduce yourself",
-        role="user"
-    ))
-    print(response.content)
-    
-    # 5. Cleanup resources
+
+    # 3. Create agent
+    agent = ReActAgent(
+        name="Jarvis",
+        sys_prompt="",  # Will be set by NacosPromptListener
+        model=DashScopeChatModel(
+            model_name="qwen-max",
+            api_key=os.getenv("DASH_SCOPE_API_KEY"),
+        ),
+        formatter=DashScopeChatFormatter(),
+        memory=InMemoryMemory(),
+    )
+
+    # 4. Attach agent to prompt listener and initialize
+    prompt_listener.attach_agent(agent)
+    await prompt_listener.initialize()
+
+    # Now the agent's sys_prompt is:
+    # "You are Jarvis, a helpful assistant specialized in programming and technology. Please respond in English."
+
+    # 5. Cleanup when done
+    prompt_listener.detach_agent()
     await NacosServiceManager.cleanup()
 
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-#### 3. Host Existing Agent
-
-If you already have an AgentScope agent, you can host it in Nacos:
-
-```python
-import asyncio
-from agentscope.agent import ReActAgent
-from agentscope.model import OpenAIChatModel
-from agentscope.formatter import OpenAIChatFormatter
-from agentscope.memory import InMemoryMemory
-from agentscope_extension_nacos.nacos_react_agent import NacosAgentListener
-
-async def main():
-    # 1. Create regular AgentScope agent
-    agent = ReActAgent(
-        name="MyAgent",
-        sys_prompt="You are an AI assistant",
-        model=OpenAIChatModel(
-            model_name="gpt-3.5-turbo",
-            api_key="sk-xxx"
-        ),
-        formatter=OpenAIChatFormatter(),
-        memory=InMemoryMemory()
-    )
-    
-    # 2. Create Nacos listener
-    listener = NacosAgentListener(agent_name="my-agent")
-    await listener.initialize()
-    
-    # 3. Attach agent to listener
-    listener.attach_agent(agent)
-    
-    # Now the agent's configuration will be managed by Nacos
-    # Configuration changes will automatically take effect
-    
-    # Use the agent...
-    
-    # 4. Detach agent (restore original configuration)
-    listener.detach_agent()
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-#### 4. Configuration Hot Updates
+#### 3. Dynamic Prompt Updates
 
-After modifying configurations in the Nacos console, the agent will automatically apply the new configuration:
-
-- **Prompt Update**: Modify `prompt.json`, agent immediately uses the new prompt
-- **Model Switch**: Modify `model.json`, agent automatically switches to the new model
-- **Tool Update**: Modify `mcp-server.json`, tool list automatically syncs
+After modifying the prompt template in the Nacos console, the agent's prompt will be automatically updated:
+- Variables will be re-rendered with the provided `args`
+- Agent's `sys_prompt` will be updated in real-time
+- No application restart needed
 
 ---
 
@@ -346,66 +280,62 @@ MCP servers must be registered in the Nacos MCP Registry first. After registrati
 ```python
 import asyncio
 from v2.nacos import ClientConfigBuilder
-from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.utils.nacos_service_manager import NacosServiceManager
 from agentscope_extension_nacos.mcp.agentscope_nacos_mcp import (
-    NacosHttpStatelessClient,
-    NacosHttpStatefulClient
+	NacosHttpStatelessClient,
+	NacosHttpStatefulClient
 )
 from agentscope_extension_nacos.mcp.agentscope_dynamic_toolkit import DynamicToolkit
 from agentscope.agent import ReActAgent
 from agentscope.model import OpenAIChatModel
 
+
 async def main():
-    # 1. Configure Nacos connection
-    client_config = (ClientConfigBuilder()
-        .server_address("localhost:8848")
-        .namespace_id("public")
-        .username("nacos")
-        .password("nacos")
-        .build())
-    NacosServiceManager.set_global_config(client_config)
-    
-    # 2. Create MCP clients
-    # Stateless client (suitable for low-frequency calls)
-    stateless_client = NacosHttpStatelessClient(
-        nacos_client_config=None,  # Use global configuration
-        name="weather-tools"  # MCP server name
-    )
-    
-    # Stateful client (suitable for high-frequency calls)
-    stateful_client = NacosHttpStatefulClient(
-        nacos_client_config=None,
-        name="calculator-tools"
-    )
-    
-    # 3. Create dynamic toolkit
-    toolkit = DynamicToolkit()
-    
-    # 4. Register MCP clients
-    await stateful_client.connect()
-    await toolkit.register_mcp_client(stateless_client)
-    await toolkit.register_mcp_client(stateful_client)
-    
-    # 5. Use toolkit in agent
-    agent = ReActAgent(
-        name="ToolAgent",
-        sys_prompt="You are an AI assistant that can use tools",
-        model=OpenAIChatModel(
-            model_name="gpt-4",
-            api_key="sk-xxx"
-        ),
-        toolkit=toolkit
-    )
-    
-    # Tools will automatically sync with Nacos configuration changes
-    # No manual refresh needed
-    
-    # 6. Cleanup resources
-    await stateful_client.close()
-    await NacosServiceManager.cleanup()
+	# 1. Configure Nacos connection
+	client_config = (ClientConfigBuilder()
+					 .server_address("localhost:8848")
+					 .namespace_id("public")
+					 .username("nacos")
+					 .password("nacos")
+					 .build())
+	NacosServiceManager.set_global_config(client_config)
+
+	# 2. Create MCP clients
+	# Stateless client (suitable for low-frequency calls)
+	stateless_client = NacosHttpStatelessClient("weather-tools")
+
+	# Stateful client (suitable for high-frequency calls)
+	stateful_client = NacosHttpStatefulClient("calculator-tools")
+
+	# 3. Create dynamic toolkit
+	toolkit = DynamicToolkit()
+
+	# 4. Register MCP clients
+	await stateful_client.connect()
+	await toolkit.register_mcp_client(stateless_client)
+	await toolkit.register_mcp_client(stateful_client)
+
+	# 5. Use toolkit in agent
+	agent = ReActAgent(
+			name="ToolAgent",
+			sys_prompt="You are an AI assistant that can use tools",
+			model=OpenAIChatModel(
+					model_name="gpt-4",
+					api_key="sk-xxx"
+			),
+			toolkit=toolkit
+	)
+
+	# Tools will automatically sync with Nacos configuration changes
+	# No manual refresh needed
+
+	# 6. Cleanup resources
+	await stateful_client.close()
+	await NacosServiceManager.cleanup()
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+	asyncio.run(main())
 ```
 
 #### 3. Dynamic Tool Updates
@@ -414,212 +344,15 @@ When MCP server tool configurations are updated in Nacos, `DynamicToolkit` will 
 
 ---
 
-### Scenario 4: A2A Agent Communication
-
-Support two ways to use the A2A protocol:
-1. **Consumer**: Connect and use remote A2A agents
-2. **Provider**: Deploy local agents as A2A services and register them in Nacos
-
-#### 1. Connect to Remote Agent from URL
-
-```python
-import asyncio
-from agentscope_extension_nacos.a2a.a2a_agent import A2aAgent
-from agentscope.message import Msg
-
-async def main():
-    # 1. Create A2A agent from Agent Card URL
-    remote_agent = A2aAgent(
-        agent_card_source="https://example.com/.well-known/agent.json"
-    )
-    
-    # 2. Chat with remote agent
-    response = await remote_agent.reply(Msg(
-        name="user",
-        content="Hello, how are you?",
-        role="user"
-    ))
-    print(response.content)
-    
-    # 3. Multi-turn conversation (automatic session state management)
-    response2 = await remote_agent.reply(Msg(
-        name="user",
-        content="What can you do?",
-        role="user"
-    ))
-    print(response2.content)
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-#### 2. Get Agent from Nacos A2A Registry
-
-```python
-import asyncio
-from v2.nacos import ClientConfigBuilder
-from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
-from agentscope_extension_nacos.a2a.nacos.nacos_a2a_card_resolver import (
-    NacosA2ACardResolver
-)
-from agentscope_extension_nacos.a2a.a2a_agent import A2aAgent
-
-async def main():
-    # 1. Configure Nacos connection
-    client_config = (ClientConfigBuilder()
-        .server_address("localhost:8848")
-        .namespace_id("public")
-        .username("nacos")
-        .password("nacos")
-        .build())
-    NacosServiceManager.set_global_config(client_config)
-    
-    # 2. Create Nacos Agent Card resolver
-    resolver = NacosA2ACardResolver(
-        remote_agent_name="test-agent"
-    )
-    
-    # 3. Create A2A agent
-    agent = A2aAgent(
-        agent_card_source=None,
-        agent_card_resolver=resolver
-    )
-    
-    # 4. Use the agent
-    from agentscope.message import Msg
-    response = await agent.reply(Msg(
-        name="user",
-        content="Hello!",
-        role="user"
-    ))
-    print(response.content)
-    
-    # 5. Cleanup resources
-    await NacosServiceManager.cleanup()
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-#### 3. Deploy Agent as A2A Service
-
-Use AgentScope Runtime to deploy an agent as an A2A service and automatically register it to the Nacos A2A Registry.
-
-```python
-import asyncio
-import os
-from contextlib import asynccontextmanager
-from agentscope.agent import ReActAgent
-from agentscope.model import OpenAIChatModel
-from agentscope_runtime.engine import Runner, LocalDeployManager
-from agentscope_runtime.engine.agents.agentscope_agent import AgentScopeAgent
-from agentscope_runtime.engine.services.context_manager import ContextManager
-from v2.nacos import ClientConfigBuilder
-from agentscope_extension_nacos.a2a.nacos.nacos_a2a_adapter import (
-    A2AFastAPINacosAdaptor
-)
-
-async def main():
-    # 1. Configure Nacos connection
-    client_config = (ClientConfigBuilder()
-        .server_address("localhost:8848")
-        .namespace_id("public")
-        .username("nacos")
-        .password("nacos")
-        .build())
-    
-    # 2. Create AgentScope Agent
-    agent = AgentScopeAgent(
-        name="Friday",
-        model=OpenAIChatModel(
-            model_name="gpt-4",
-            api_key=os.getenv("OPENAI_API_KEY")
-        ),
-        agent_config={
-            "sys_prompt": "You're a helpful assistant named Friday."
-        },
-        agent_builder=ReActAgent
-    )
-    
-    # 3. Create Runner
-    async with Runner(
-        agent=agent,
-        context_manager=ContextManager()
-    ) as runner:
-        # 4. Create deployment manager
-        deploy_manager = LocalDeployManager(
-            host="localhost",
-            port=8090
-        )
-        
-        # 5. Create A2A Nacos adapter
-        # This exposes the Agent via A2A protocol and registers it to Nacos
-        nacos_a2a_adapter = A2AFastAPINacosAdaptor(
-            nacos_client_config=client_config,
-            agent=agent,
-            host="localhost"
-        )
-        
-        # 6. Deploy Agent
-        deploy_result = await runner.deploy(
-            deploy_manager=deploy_manager,
-            endpoint_path="/process",
-            protocol_adapters=[nacos_a2a_adapter],  # Use A2A adapter
-            stream=True
-        )
-        
-        print(f"🚀 Agent deployed successfully: {deploy_result}")
-        print(f"🌐 Service URL: {deploy_manager.service_url}")
-        print(f"💚 Health check: {deploy_manager.service_url}/health")
-        print(f"📝 Agent registered to Nacos A2A Registry")
-        
-        # Keep service running
-        await asyncio.sleep(3600)
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-**Deployment Effects**:
-- ✅ Agent serves externally via FastAPI with A2A protocol
-- ✅ Agent Card automatically registered to Nacos A2A Registry
-- ✅ Other clients can discover and connect to this Agent via Nacos
-- ✅ Supports streaming responses and full A2A protocol features
-
-**Client Access**:
-After successful deployment, other clients can discover and use this Agent via Method 2 in Scenario 4 (from Nacos A2A Registry).
-
----
-
 ## 📚 More Examples
 
 Check the [`example/`](./example/) directory for more complete examples:
 
-- [`agent_example.py`](./example/agent_example.py) - Basic agent creation and usage
 - [`model_example.py`](./example/model_example.py) - Model configuration and dynamic switching
 - [`mcp_example.py`](./example/mcp_example.py) - MCP tool integration example
-- [`runtime_example.py`](./example/runtime_example.py) - AgentScope Runtime deployment
-- [`a2a/nacos_a2a_example.py`](./example/a2a/nacos_a2a_example.py) - Connect to A2A agent from Nacos
-- [`a2a/runtime_nacos_a2a_example.py`](./example/a2a/runtime_nacos_a2a_example.py) - Deploy Agent as A2A service
+- [`prompt_example.py`](./example/prompt_example.py) - Prompt configuration hosting with variable rendering
 
 ## ⚙️ Advanced Configuration
-
-### NacosAgentListener Options
-
-Selectively listen to certain configurations:
-
-```python
-from agentscope_extension_nacos.nacos_react_agent import NacosAgentListener
-
-# Only listen to prompt and model, not MCP server configuration
-listener = NacosAgentListener(
-    agent_name="my-agent",
-    nacos_client_config=None,  # Use global configuration
-    listen_prompt=True,        # Listen to prompt configuration
-    listen_chat_model=True,    # Listen to model configuration
-    listen_mcp_server=False    # Don't listen to MCP server configuration
-)
-```
 
 ### NacosChatModel Backup Model
 
@@ -660,9 +393,27 @@ custom_config = (ClientConfigBuilder()
     .build())
 
 # Use custom configuration
-listener = NacosAgentListener(
+model = NacosChatModel(
     agent_name="my-agent",
     nacos_client_config=custom_config  # Use custom configuration
+)
+```
+
+### NacosPromptListener with Custom Args
+
+Dynamically render prompt templates with custom variables:
+
+```python
+from agentscope_extension_nacos.prompt.nacos_prompt_listener import NacosPromptListener
+
+# Create prompt listener with template variables
+prompt_listener = NacosPromptListener(
+    prompt_key="customer-service",
+    args={
+        "company_name": "Acme Corp",
+        "support_hours": "9 AM - 5 PM EST",
+        "language": "English",
+    },
 )
 ```
 
@@ -685,12 +436,12 @@ assert manager.is_initialized()
 </details>
 
 <details>
-<summary><b>Q: Agent not responding after configuration update?</b></summary>
+<summary><b>Q: Configuration not updating after changes in Nacos?</b></summary>
 
 1. Check if Nacos configuration Group and DataId are correct
 2. Verify JSON configuration format is valid
 3. Check logs for error messages
-4. Confirm `NacosAgentListener` is properly initialized and attached
+4. Confirm the listener is properly initialized
 </details>
 
 <details>
@@ -727,19 +478,12 @@ agent_name is used to identify configuration groups in Nacos, with the following
 </details>
 
 <details>
-<summary><b>Q: How do A2A server and client collaborate?</b></summary>
+<summary><b>Q: How does prompt variable rendering work?</b></summary>
 
-**Server (Agent Provider)**:
-1. Use `A2AFastAPINacosAdaptor` to deploy Agent as A2A service
-2. Agent Card automatically registered to Nacos A2A Registry
-3. Provide A2A protocol interface externally
-
-**Client (Agent Consumer)**:
-1. Use `NacosA2ACardResolver` to get Agent Card from Nacos
-2. Connect and use remote Agent via `A2aAgent`
-3. Automatically manage session state
-
-The entire process enables agent servitization and interconnection.
+NacosPromptListener uses `{{variable}}` syntax:
+- Variables in the template are replaced with values from the `args` dictionary
+- If a variable is not found in `args`, the original `{{variable}}` text is kept
+- Rendering happens on initial load and whenever the Nacos configuration changes
 </details>
 
 ## 🤝 Community & Support
@@ -759,7 +503,6 @@ Thanks to the following projects and communities for their support:
 - [AgentScope](https://github.com/modelscope/agentscope) - Powerful multi-agent framework
 - [Nacos](https://nacos.io/) - Dynamic service discovery and configuration management platform
 - [MCP Protocol](https://modelcontextprotocol.io/) - Model Context Protocol
-- [A2A Protocol](https://a2a.dev/) - Agent-to-Agent communication protocol
 
 ---
 

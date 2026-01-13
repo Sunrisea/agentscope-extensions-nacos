@@ -3,32 +3,28 @@
 AgentScope Extension for Nacos - Deep integration between AgentScope and Nacos
 
 This library provides seamless integration of AgentScope with Nacos, supporting:
-- Dynamic Agent configuration management (Prompt, MCP Server, Chat Model)
+- Dynamic Agent configuration management (Prompt, Model Config)
 - Nacos service discovery and registration
-- MCP (Model Context Protocol) clients
-- A2A (Agent-to-Agent) protocol support
+- MCP (Model Context Protocol) clients and dynamic toolkit
 
 Core Components:
 - NacosServiceManager: Nacos service connection pool manager (Singleton pattern)
-- NacosAgentListener: Agent configuration listener with Nacos integration
-- NacosReActAgent: ReAct Agent integrated with Nacos configuration
+- NacosChatModel: Dynamically configured chat model from Nacos
+- NacosPromptListener: Prompt template listener with variable rendering
+- DynamicToolkit: MCP toolkit with automatic tool synchronization
 
 Submodules:
 - mcp: MCP protocol clients and dynamic toolkit
 - model: Dynamically configured chat models
-- a2a: A2A protocol agents and adapters
+- prompt: Prompt template management with hot updates
 
 Usage Examples:
-    >>> from agentscope_extension_nacos import (
-    ...     NacosServiceManager,
-    ...     NacosAgentListener,
-    ...     NacosReActAgent,
-    ... )
+    >>> from agentscope_extension_nacos import NacosServiceManager
+    >>> from agentscope_extension_nacos.model import NacosChatModel
+    >>> from agentscope_extension_nacos.prompt import NacosPromptListener
     >>> 
     >>> # Method 1: Using environment variables
-    >>> listener = NacosAgentListener(agent_name="my_agent")
-    >>> await listener.initialize()
-    >>> agent = NacosReActAgent(nacos_agent_listener=listener, name="my_agent")
+    >>> model = NacosChatModel(agent_name="my_agent")
     >>> 
     >>> # Method 2: Manually create nacos_client_config
     >>> from v2.nacos import ClientConfigBuilder
@@ -38,11 +34,10 @@ Usage Examples:
     ...     .username("nacos")
     ...     .password("nacos")
     ...     .build())
-    >>> listener = NacosAgentListener(
+    >>> model = NacosChatModel(
     ...     agent_name="my_agent",
-    ...     nacos_client_config=config,  # Pass custom config
+    ...     nacos_client_config=config,
     ... )
-    >>> await listener.initialize()
     >>> 
     >>> # Method 3: Set global config (affects all components)
     >>> NacosServiceManager.set_global_config(config)
@@ -56,13 +51,13 @@ Environment Variables:
     NACOS_PASSWORD=nacos                  # Optional (Local Nacos)
 """
 
-__version__ = "0.2.1"
+__version__ = "1.0.0"
 __author__ = "AgentScope Extension Team"
 
 # =============================================================================
 # Core Components - Nacos Service Manager
 # =============================================================================
-from agentscope_extension_nacos.nacos_service_manager import (
+from agentscope_extension_nacos.utils.nacos_service_manager import (
     NacosServiceManager,
     # Convenience functions
     get_nacos_naming_service,
@@ -71,22 +66,22 @@ from agentscope_extension_nacos.nacos_service_manager import (
 )
 
 # =============================================================================
-# Core Components - Agent Listener and ReAct Agent
+# Core Components - Model
 # =============================================================================
-from agentscope_extension_nacos.nacos_react_agent import (
-    NacosAgentListener,
-    NacosReActAgent,
-)
+from agentscope_extension_nacos.model.nacos_chat_model import NacosChatModel
 
 # =============================================================================
-# Utilities
+# Core Components - Prompt
 # =============================================================================
-from agentscope_extension_nacos.utils import (
-    AsyncRWLock,
-    validate_agent_name,
-    get_first_non_loopback_ip,
-    generate_url_from_endpoint,
-    random_generate_url_from_mcp_server_detail_info,
+from agentscope_extension_nacos.prompt.nacos_prompt_listener import NacosPromptListener
+
+# =============================================================================
+# Core Components - MCP
+# =============================================================================
+from agentscope_extension_nacos.mcp.agentscope_dynamic_toolkit import DynamicToolkit
+from agentscope_extension_nacos.mcp.agentscope_nacos_mcp import (
+    NacosHttpStatelessClient,
+    NacosHttpStatefulClient,
 )
 
 # =============================================================================
@@ -101,13 +96,12 @@ __all__ = [
     "get_nacos_naming_service",
     "get_nacos_config_service",
     "get_nacos_ai_service",
-    # Agent Components
-    "NacosAgentListener",
-    "NacosReActAgent",
-    # Utilities
-    "AsyncRWLock",
-    "validate_agent_name",
-    "get_first_non_loopback_ip",
-    "generate_url_from_endpoint",
-    "random_generate_url_from_mcp_server_detail_info",
+    # Model
+    "NacosChatModel",
+    # Prompt
+    "NacosPromptListener",
+    # MCP
+    "DynamicToolkit",
+    "NacosHttpStatelessClient",
+    "NacosHttpStatefulClient",
 ]

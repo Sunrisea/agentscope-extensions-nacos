@@ -6,8 +6,8 @@ model configurations through Nacos, including model provider, API keys, and
 invocation parameters.
 
 Required Nacos Configuration:
-    Group: ai-agent-test-agent
-    DataId: model.json
+    Group: nacos-ai-model
+    DataId: test-model.json
     Content: {
         "modelName": "qwen-max",
         "modelProvider": "dashscope",
@@ -28,10 +28,10 @@ Supported Model Providers:
 """
 
 import asyncio
-import os
 
+from agentscope_extension_nacos.model import AutoFormatter
 from agentscope_extension_nacos.model.nacos_chat_model import NacosChatModel
-from agentscope_extension_nacos.nacos_service_manager import NacosServiceManager
+from agentscope_extension_nacos.utils.nacos_service_manager import NacosServiceManager
 from agentscope.agent import ReActAgent, UserAgent, UserInputBase, UserInputData
 from agentscope.formatter import DashScopeChatFormatter
 from agentscope.memory import InMemoryMemory
@@ -77,7 +77,7 @@ async def creating_react_agent() -> None:
     # Model configuration will be loaded from Nacos and supports hot updates
     # The model will automatically switch when configuration changes in Nacos
     model = NacosChatModel(
-        agent_name="test-agent",  # Corresponds to Group: ai-agent-test-agent
+        model_key="test-model",
         stream=True,
     )
 
@@ -86,7 +86,7 @@ async def creating_react_agent() -> None:
         name="Jarvis",
         sys_prompt="You are an AI assistant",
         model=model,
-        formatter=DashScopeChatFormatter(),
+        formatter=AutoFormatter(if_multi_agent=False, chat_model= model),
         toolkit=toolkit,
         memory=InMemoryMemory(),
     )
